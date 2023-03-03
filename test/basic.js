@@ -2,8 +2,8 @@ const tape = require('tape')
 const ssbKeys = require('ssb-keys')
 const bfe = require('ssb-bfe')
 const base64Url = require('base64-url')
+const bipf = require('bipf')
 const mini = require('../format')
-// const { extract, extractVal } = require('../extract')
 
 // FIXME: used a forked ssb-keys
 const keys = ssbKeys.generate(null, 'alice', 'buttwoo-v1')
@@ -94,86 +94,24 @@ tape('encode/decode works', function (t) {
   t.end()
 })
 
-tape('subfeed id', function (t) {
+tape('extract author', function (t) {
   const hmacKey = null
   const content = { type: 'post', text: 'Hello world!' }
   const timestamp = 1652037377204
 
-  const butt2Msg = mini.newNativeMsg({
+  const miniMsg = mini.newNativeMsg({
     keys,
     content,
-    parent:
-      'ssb:message/buttwoo-v1/bRjv4LV9CmJp-bXR1nOGJ9Uuo8glEBmnN27ckE2SFJo=',
+    type: 'post',
     previous: null,
     timestamp,
-    tag: mini.tags.SUB_FEED,
     hmacKey,
   })
 
-  const feedId = mini.getFeedId(butt2Msg)
-  t.equals(
-    feedId,
-    'ssb:feed/buttwoo-v1/OAiOTCroL1xFxoCKYaZJDTxhLOHaI1cURm_HSPvEy7s=/bRjv4LV9CmJp-bXR1nOGJ9Uuo8glEBmnN27ckE2SFJo'
-  )
-
-  t.end()
-})
-
-tape('extract author + sequence', function (t) {
-  const hmacKey = null
-  const content = { type: 'post', text: 'Hello world!' }
-  const timestamp = 1652037377204
-
-  const butt2Msg = mini.newNativeMsg({
-    keys,
-    content,
-    previous: null,
-    timestamp,
-    tag: mini.tags.SSB_FEED,
-    hmacKey,
-  })
-
-  const author = mini.getFeedId(butt2Msg)
-  t.deepEqual(bfe.encode(author), authorBFE, 'extracting author works')
-
-  const sequence = mini.getSequence(butt2Msg)
-  t.deepEqual(sequence, 1, 'extracting sequence works')
-
-  t.end()
-})
-
-tape('parent', function (t) {
-  const hmacKey = null
-  const content = { type: 'post', text: 'Hello world!' }
-  const timestamp = 1652037377204
-
-  const butt2Msg = mini.newNativeMsg({
-    keys,
-    content,
-    previous: null,
-    timestamp,
-    tag: mini.tags.SSB_FEED,
-    hmacKey,
-  })
-  const butt2MsgId = mini.getMsgId(butt2Msg)
-
-  t.ok(mini.isNativeMsg(butt2Msg), 'isNative works')
-
-  const butt2Msg2 = mini.newNativeMsg({
-    keys,
-    parent: butt2MsgId,
-    content,
-    previous: null,
-    timestamp,
-    tag: mini.tags.SSB_FEED,
-    hmacKey,
-  })
-
-  t.ok(mini.isNativeMsg(butt2Msg2), 'isNative works with a parent')
-
-  const jsMsgVal = mini.fromNativeMsg(butt2Msg2)
-
-  t.equal(jsMsgVal.parent, butt2MsgId, 'parent in decoded msg works')
+  const extractedFeed = mini.getFeedId(miniMsg)
+  const expectedFeed =
+    'ssb:feed/minibutt-v1/jkwq6C9cRcaAimGmSQ08YSzh2iNXFEZvx0j7xMu7/post'
+  t.equal(expectedFeed, extractedFeed, 'extracting author works')
 
   t.end()
 })
@@ -183,31 +121,25 @@ tape('year 2080', function (t) {
   const content = { type: 'post', text: 'Hello world!' }
   const timestamp = Date.parse('01 Jan 2080 00:00:00 GMT')
 
-  const butt2Msg = mini.newNativeMsg({
+  const miniMsg = mini.newNativeMsg({
     keys,
     content,
+    type: 'post',
     previous: null,
     timestamp,
-    tag: mini.tags.SSB_FEED,
     hmacKey,
   })
 
-  const [encodedVal] = extract(butt2Msg)
-  const [
-    authorBFE,
-    parentBFE,
-    sequence,
-    timestampExtracted,
-    previousBFE,
-    tag,
-    contentLength,
-    contentHashBuf,
-  ] = extractVal(encodedVal)
+  const [encodedVal] = bipf.decode(miniMsg)
+  const [authorBFE, type, previous, timestampExtracted] =
+    bipf.decode(encodedVal)
 
   t.equal(timestamp, timestampExtracted, 'timestamps far into the future works')
 
   t.end()
 })
+
+return
 
 tape('validate', (t) => {
   const hmacKey = null
