@@ -71,12 +71,6 @@ function getMsgHashFromMsgVal(msgVal) {
   }
 }
 
-const tags = {
-  SSB_FEED: 0,
-  SUB_FEED: 1,
-  END_OF_FEED: 2,
-}
-
 function newNativeMsg(opts) {
   if (!opts.type) {
     throw new Error('opts.type is required in minibutt-v1')
@@ -180,7 +174,10 @@ function fromDecryptedNativeMsg(plaintextBuf, nativeMsg, encoding = 'js') {
 }
 
 function _toNativeFromJSMsg(msgVal) {
-  const author = Buffer.from(base64Url.unescape(msgVal.author.split('/')[2]), 'base64')
+  const author = Buffer.from(
+    base64Url.unescape(msgVal.author.split('/')[2]),
+    'base64'
+  )
   const type = msgVal.type
   const previous = msgVal.previous
   const timestamp = msgVal.timestamp
@@ -285,5 +282,4 @@ module.exports = {
   // Not part of ssb-feed-format API:
   validateSync,
   validateBatchSync,
-  tags,
 }
