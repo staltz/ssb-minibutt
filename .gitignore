@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: 2021 Anders Rune Jensen
+#
+# SPDX-License-Identifier: Unlicense
+
+node_modules
+pnpm-lock.yaml
+coverage
+.nyc_output
