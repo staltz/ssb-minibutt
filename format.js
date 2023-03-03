@@ -35,10 +35,7 @@ function getFeedId(nativeMsg) {
 }
 
 function getSequence(nativeMsg) {
-  // TODO
-  const [encodedVal] = bipf.decode(nativeMsg)
-  const [authorBFE, parentBFE, sequence] = bipf.decode(encodedVal)
-  return sequence
+  throw new Error('a minibutt message does not have a sequence')
 }
 
 function isNativeMsg(x) {
@@ -104,15 +101,14 @@ function _fromNativeToJSMsg(nativeMsg) {
   const [authorBuf, type, previous, timestamp, contentLength, contentHashBuf] =
     bipf.decode(metadataBIPF)
   const author = `ssb:feed/minibutt-v1/${base64Url.encode(authorBuf)}/${type}`
-  // const previous =
   const content = bipf.decode(contentBuf)
   const contentHash = contentHashBuf
   const signature = sigBuf
   const msgVal = {
     author,
     type,
-    timestamp,
     previous,
+    timestamp,
     content,
     contentHash,
     signature,
@@ -122,31 +118,19 @@ function _fromNativeToJSMsg(nativeMsg) {
 
 function _fromNativeToBIPFMsg(nativeMsg) {
   const [encodedVal, sigBuf, contentBuf] = bipf.decode(nativeMsg)
-  const [
-    authorBFE,
-    parentBFE,
-    sequence,
-    timestamp,
-    previousBFE,
-    tag,
-    contentLength,
-    contentHash,
-  ] = bipf.decode(encodedVal)
-  const author = bfe.decodeTypeFormat(authorBFE, 'feed', 'buttwoo-v1')
-  const parent = bfe.decodeTypeFormat(parentBFE, 'message', 'buttwoo-v1')
-  const previous = bfe.decodeTypeFormat(previousBFE, 'message', 'buttwoo-v1')
+  const [authorBuf, type, previous, timestamp, contentLength, contentHashBuf] =
+    bipf.decode(metadataBIPF)
+  const author = `ssb:feed/minibutt-v1/${base64Url.encode(authorBuf)}/${type}`
   const signature = sigBuf
   bipf.markIdempotent(contentBuf)
   const msgVal = {
     author,
-    parent,
-    sequence,
-    timestamp,
+    type,
     previous,
+    timestamp,
     content: contentBuf,
     contentHash,
     signature,
-    tag,
   }
   const bipfMsg = bipf.allocAndEncode(msgVal)
   return bipfMsg
@@ -197,6 +181,7 @@ function _toNativeFromJSMsg(msgVal) {
 }
 
 function _toNativeFromBIPFMsg(buffer) {
+  // TODO
   let authorBFE, parentBFE, sequence, timestamp, previousBFE
   let tagBuffer, contentBuffer, contentLen, contentHash, sigBuf
 
