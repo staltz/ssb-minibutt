@@ -110,7 +110,7 @@ tape('extract author', function (t) {
 
   const extractedFeed = mini.getFeedId(miniMsg)
   const expectedFeed =
-    'ssb:feed/minibutt-v1/jkwq6C9cRcaAimGmSQ08YSzh2iNXFEZvx0j7xMu7/post'
+    'ssb:feed/minibutt-v1/OAiOTCroL1xFxoCKYaZJDTxhLOHaI1cURm_HSPvEy7s/post'
   t.equal(expectedFeed, extractedFeed, 'extracting author works')
 
   t.end()
