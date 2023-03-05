@@ -113,7 +113,7 @@ function _fromNativeToJSMsg(nativeMsg) {
 }
 
 function _fromNativeToBIPFMsg(nativeMsg) {
-  const [encodedVal, sigBuf, contentBuf] = bipf.decode(nativeMsg)
+  const [metadataBIPF, sigBuf, contentBuf] = bipf.decode(nativeMsg)
   const [authorBuf, type, previous, timestamp, contentLength, contentHashBuf] =
     bipf.decode(metadataBIPF)
   const author = `ssb:feed/minibutt-v1/${base64Url.encode(authorBuf)}/${type}`
