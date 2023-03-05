@@ -1,7 +1,7 @@
 const bipf = require('bipf')
 const bfe = require('ssb-bfe')
 const SSBURI = require('ssb-uri2')
-// const varint = require('fast-varint')
+const varint = require('fast-varint')
 const ssbKeys = require('ssb-keys')
 const base64Url = require('base64-url')
 const makeContentHash = require('./content-hash')
@@ -18,7 +18,6 @@ function _base64ToBuffer(str) {
   return Buffer.from(str.substring(0, i), 'base64')
 }
 
-const BUTTWOO_FEED_TF = bfe.toTF('feed', 'buttwoo-v1')
 const BIPF_TAG_SIZE = 3
 const BIPF_TAG_MASK = 7
 const BIPF_STRING_TYPE = 0b000
@@ -28,28 +27,22 @@ const encodings = ['js', 'bipf']
 
 function getFeedId(nativeMsg) {
   const [metadata] = bipf.decode(nativeMsg)
-  const [authorBFE, type] = bipf.decode(metadata)
-  // FIXME: fork ssb-bfe to support minibutt
-  const uri = bfe.decodeTypeFormat(authorBFE, 'feed', 'buttwoo-v1')
-  return uri.replace('buttwoo', 'minibutt') + '/' + type
+  const [authorBuf, type] = bipf.decode(metadata)
+
+  return `ssb:feed/minibutt-v1/${base64Url.encode(authorBuf)}/${type}`
 }
 
 function getSequence(nativeMsg) {
-  // TODO
-  const [encodedVal] = bipf.decode(nativeMsg)
-  const [authorBFE, parentBFE, sequence] = bipf.decode(encodedVal)
-  return sequence
+  throw new Error('a minibutt message does not have a sequence')
 }
 
 function isNativeMsg(x) {
-  // TODO
   if (!Buffer.isBuffer(x)) return false
   if (x.length === 0) return false
   const type = bipf.getEncodedType(x)
   if (type !== bipf.types.array) return false
-  // Peek into the BFE header of the author field
-  const bfeHeader = x.subarray(8, 10)
-  return bfeHeader.compare(BUTTWOO_FEED_TF) === 0
+  // FIXME: better check
+  return true
 }
 
 function isAuthor(author) {
@@ -69,12 +62,6 @@ function getMsgHashFromMsgVal(msgVal) {
   } else {
     return key
   }
-}
-
-const tags = {
-  SSB_FEED: 0,
-  SUB_FEED: 1,
-  END_OF_FEED: 2,
 }
 
 function newNativeMsg(opts) {
@@ -110,15 +97,14 @@ function _fromNativeToJSMsg(nativeMsg) {
   const [authorBuf, type, previous, timestamp, contentLength, contentHashBuf] =
     bipf.decode(metadataBIPF)
   const author = `ssb:feed/minibutt-v1/${base64Url.encode(authorBuf)}/${type}`
-  // const previous =
   const content = bipf.decode(contentBuf)
   const contentHash = contentHashBuf
   const signature = sigBuf
   const msgVal = {
     author,
     type,
-    timestamp,
     previous,
+    timestamp,
     content,
     contentHash,
     signature,
@@ -127,32 +113,20 @@ function _fromNativeToJSMsg(nativeMsg) {
 }
 
 function _fromNativeToBIPFMsg(nativeMsg) {
-  const [encodedVal, sigBuf, contentBuf] = bipf.decode(nativeMsg)
-  const [
-    authorBFE,
-    parentBFE,
-    sequence,
-    timestamp,
-    previousBFE,
-    tag,
-    contentLength,
-    contentHash,
-  ] = bipf.decode(encodedVal)
-  const author = bfe.decodeTypeFormat(authorBFE, 'feed', 'buttwoo-v1')
-  const parent = bfe.decodeTypeFormat(parentBFE, 'message', 'buttwoo-v1')
-  const previous = bfe.decodeTypeFormat(previousBFE, 'message', 'buttwoo-v1')
+  const [metadataBIPF, sigBuf, contentBuf] = bipf.decode(nativeMsg)
+  const [authorBuf, type, previous, timestamp, contentLength, contentHashBuf] =
+    bipf.decode(metadataBIPF)
+  const author = `ssb:feed/minibutt-v1/${base64Url.encode(authorBuf)}/${type}`
   const signature = sigBuf
   bipf.markIdempotent(contentBuf)
   const msgVal = {
     author,
-    parent,
-    sequence,
-    timestamp,
+    type,
     previous,
+    timestamp,
     content: contentBuf,
     contentHash,
     signature,
-    tag,
   }
   const bipfMsg = bipf.allocAndEncode(msgVal)
   return bipfMsg
@@ -180,7 +154,10 @@ function fromDecryptedNativeMsg(plaintextBuf, nativeMsg, encoding = 'js') {
 }
 
 function _toNativeFromJSMsg(msgVal) {
-  const author = Buffer.from(base64Url.unescape(msgVal.author.split('/')[2]), 'base64')
+  const author = Buffer.from(
+    base64Url.unescape(msgVal.author.split('/')[2]),
+    'base64'
+  )
   const type = msgVal.type
   const previous = msgVal.previous
   const timestamp = msgVal.timestamp
@@ -200,8 +177,8 @@ function _toNativeFromJSMsg(msgVal) {
 }
 
 function _toNativeFromBIPFMsg(buffer) {
-  let authorBFE, parentBFE, sequence, timestamp, previousBFE
-  let tagBuffer, contentBuffer, contentLen, contentHash, sigBuf
+  let authorBuffer, type, previous, timestamp
+  let contentBuffer, contentLen, contentHash, sigBuf
 
   const tag = varint.decode(buffer, 0)
   const len = tag >> BIPF_TAG_SIZE
@@ -217,14 +194,13 @@ function _toNativeFromBIPFMsg(buffer) {
 
     const key = bipf.decode(buffer, keyStart)
     if (key === 'author')
-      authorBFE = bfe.encode(bipf.decode(buffer, valueStart))
-    else if (key === 'parent')
-      parentBFE = bfe.encode(bipf.decode(buffer, valueStart))
-    else if (key === 'sequence') sequence = bipf.decode(buffer, valueStart)
+      authorBuffer = Buffer.from(
+        base64Url.unescape(bipf.decode(buffer, valueStart).split('/')[2]),
+        'base64'
+      )
+    else if (key === 'type') type = bipf.decode(buffer, valueStart)
     else if (key === 'timestamp') timestamp = bipf.decode(buffer, valueStart)
-    else if (key === 'previous')
-      previousBFE = bfe.encode(bipf.decode(buffer, valueStart))
-    else if (key === 'tag') tagBuffer = bipf.decode(buffer, valueStart)
+    else if (key === 'previous') previous = bipf.decode(buffer, valueStart)
     else if (key === 'content') {
       if ((valueTag & BIPF_TAG_MASK) === BIPF_STRING_TYPE) {
         contentBuffer = bipf.decode(buffer, valueStart)
@@ -241,12 +217,10 @@ function _toNativeFromBIPFMsg(buffer) {
   }
 
   const value = [
-    authorBFE,
-    parentBFE,
-    sequence,
+    authorBuffer,
+    type,
+    previous,
     timestamp,
-    previousBFE,
-    tagBuffer,
     contentLen,
     contentHash,
   ]
@@ -285,5 +259,4 @@ module.exports = {
   // Not part of ssb-feed-format API:
   validateSync,
   validateBatchSync,
-  tags,
 }

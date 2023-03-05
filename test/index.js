@@ -7,8 +7,12 @@ const format = require('../format')
 test('passes ssb-feed-format', (t) => {
   check(
     format,
-    () => ssbKeys.generate(null, 'alice', 'buttwoo-v1'),
-    { tag: 0 },
+    () => {
+      const keys = ssbKeys.generate(null, 'alice', 'buttwoo-v1')
+      keys.id = keys.id.replace('buttwoo', 'minibutt')
+      return keys
+    },
+    { type: 'post' },
     (err) => {
       t.error(err, 'no error')
       if (err) console.log(err)
